@@ -1,0 +1,5 @@
+[Speaker]: Hello, how are you?
+
+[Paragraph]: This is a sunny day.
+
+[Speaker]: Goodbye!
