@@ -127,16 +127,7 @@
             <!-- Action buttons and filter info -->
             <div class="d-flex flex-wrap justify-content-between align-items-center">
               <div class="action-buttons mb-2 mb-md-0">
-                <b-button 
-                  variant="primary" 
-                  class="action-btn save-btn mr-2"
-                  @click="saveTranslation" 
-                  :disabled="isSaving"
-                >
-                  <b-spinner small v-if="isSaving" class="mr-2"></b-spinner>
-                  <b-icon icon="save" v-else class="mr-2"></b-icon>
-                  {{ isSaving ? '正在保存...' : '保存翻译进度' }}
-                </b-button>
+                <!-- Removed the manual save button -->
                 <b-button
                   variant="success" 
                   class="action-btn download-btn" 
