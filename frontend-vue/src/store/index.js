@@ -134,12 +134,24 @@ export default new Vuex.Store({
         
         // 从响应头中获取文件名
         const contentDisposition = response.headers['content-disposition'];
-        let filename = 'translated.txt';
+        let filename = 'translated.txt'; // Default filename
         if (contentDisposition) {
+          console.log("Received Content-Disposition:", contentDisposition); // Log header for debugging
           const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-          if (filenameMatch.length === 2) {
+          // Check if filenameMatch is not null AND has the expected length
+          if (filenameMatch && filenameMatch.length === 2) { 
             filename = filenameMatch[1];
+          } else {
+             console.warn("Could not extract filename from Content-Disposition header.");
+             // Optional: Try a simpler match if quotes are missing?
+             const simplerMatch = contentDisposition.match(/filename=([^;]+)/);
+             if (simplerMatch && simplerMatch.length === 2) {
+               filename = simplerMatch[1];
+               console.log("Used simpler filename match:", filename);
+             }
           }
+        } else {
+            console.warn("Content-Disposition header not found in response.");
         }
         
         // 创建下载链接
