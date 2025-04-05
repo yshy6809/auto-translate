@@ -1,49 +1,95 @@
-import re
+import xml.etree.ElementTree as ET
 
 def parse_file_content(content):
-    """将文本内容分割为段落"""
-    # 1. Split the content using a regular expression:
-    #    re.split(r'\n\s*\n+', content)
-    #    - r'\n\s*\n+' matches one newline (\n), followed by
-    #      zero or more whitespace characters (\s*), followed by
-    #      one or more newlines (\n+).
-    #    - This effectively splits the text wherever there are one or more blank lines
-    #      (or lines containing only whitespace) between paragraphs.
-    #
-    # 2. Iterate through the resulting list of potential segments:
-    #    [... for segment in ... ]
-    #
-    # 3. For each segment, remove leading/trailing whitespace:
-    #    segment.strip()
-    #
-    # 4. Filter out any segments that are empty after stripping:
-    #    ... if segment.strip()
-    #
-    # 5. Return the final list of non-empty, stripped segments.
-    return [segment.strip() for segment in re.split(r'\n\s*\n+', content) if segment.strip()]
+    """
+    Parses structured text content with <seg>, <source>, <target> tags.
 
-# Example usage and test cases (optional, but good practice)
+    Args:
+        content: The string content of the file.
+
+    Returns:
+        A list of tuples, where each tuple is (source_text, target_text).
+        Returns an empty list if parsing fails or content is empty.
+
+    Raises:
+        ET.ParseError: If the XML structure is invalid.
+    """
+    segments = []
+    if not content or not content.strip():
+        return segments
+
+    try:
+        # Wrap content in a root element for valid XML parsing
+        # Use a namespace-agnostic approach for finding tags
+        root = ET.fromstring(f"<root>{content}</root>")
+        for seg_element in root.findall('.//seg'):
+            source_element = seg_element.find('.//source')
+            target_element = seg_element.find('.//target')
+
+            source_text = source_element.text.strip() if source_element is not None and source_element.text else ""
+            target_text = target_element.text.strip() if target_element is not None and target_element.text else ""
+
+            # Only add if source text is present
+            if source_text:
+                segments.append((source_text, target_text))
+    except ET.ParseError as e:
+        print(f"XML Parse Error: {e}") # Log the error
+        raise # Re-raise the error to be handled by the caller
+
+    return segments
+
+# Example usage and test cases
 if __name__ == '__main__':
-    test_content_1 = "Paragraph 1.\n\nParagraph 2.\n  \nParagraph 3."
+    test_content_1 = """
+<seg>
+  <source> This is the first paragraph. </source>
+  <target> 这是第一段。 </target>
+</seg>
+<seg>
+  <source> This is the second paragraph, with no target yet. </source>
+  <target></target>
+</seg>
+<seg>
+  <source>Third paragraph.</source>
+  <target>第三段。</target>
+</seg>
+<seg>
+  <source>  Paragraph with only source.  </source>
+</seg>
+"""
     print(f"Test 1 Segments: {parse_file_content(test_content_1)}")
-    # Expected: ['Paragraph 1.', 'Paragraph 2.', 'Paragraph 3.']
+    # Expected: [('This is the first paragraph.', '这是第一段。'), ('This is the second paragraph, with no target yet.', ''), ('Third paragraph.', '第三段。'), ('Paragraph with only source.', '')]
 
-    test_content_2 = "Single paragraph."
+    test_content_2 = "<seg><source>Single segment.</source><target>单个片段。</target></seg>"
     print(f"Test 2 Segments: {parse_file_content(test_content_2)}")
-    # Expected: ['Single paragraph.']
+    # Expected: [('Single segment.', '单个片段。')]
 
-    test_content_3 = "\n\n   \nLeading and trailing whitespace.\n\n   \n\n"
+    test_content_3 = "" # Empty content
     print(f"Test 3 Segments: {parse_file_content(test_content_3)}")
-    # Expected: ['Leading and trailing whitespace.']
-
-    test_content_4 = ""
-    print(f"Test 4 Segments: {parse_file_content(test_content_4)}")
     # Expected: []
 
-    test_content_5 = "Line1\nLine2\n\nLine3" # Treat consecutive newlines as separator
-    print(f"Test 5 Segments: {parse_file_content(test_content_5)}")
-    # Expected: ['Line1\nLine2', 'Line3']
+    test_content_4 = "<seg><source>Source only.</source></seg>"
+    print(f"Test 4 Segments: {parse_file_content(test_content_4)}")
+    # Expected: [('Source only.', '')]
 
-    test_content_6 = "段落一。\n\n段落二。\n\n   \n\n段落三。"
-    print(f"Test 6 Segments (Chinese): {parse_file_content(test_content_6)}")
-    # Expected: ['段落一。', '段落二。', '段落三。']
+    test_content_5 = "<seg><target>Target only.</target></seg>" # Invalid segment (no source)
+    print(f"Test 5 Segments: {parse_file_content(test_content_5)}")
+    # Expected: []
+
+    test_content_6 = "Just plain text, no tags." # Invalid format
+    try:
+        print(f"Test 6 Segments: {parse_file_content(test_content_6)}")
+    except ET.ParseError as e:
+        print(f"Test 6 correctly failed with ParseError: {e}")
+    # Expected: ParseError
+
+    test_content_7 = "<root><seg><source>Valid XML</source></seg></root>" # Already has root
+    try:
+        print(f"Test 7 Segments: {parse_file_content(test_content_7)}")
+    except ET.ParseError as e:
+        print(f"Test 7 failed with ParseError (double root): {e}")
+    # Expected: ParseError (due to <root><root> structure)
+
+    test_content_8 = "<seg><source>Segment 1</source><target>T1</target></seg><seg><source>Segment 2</source></seg>"
+    print(f"Test 8 Segments: {parse_file_content(test_content_8)}")
+    # Expected: [('Segment 1', 'T1'), ('Segment 2', '')]

@@ -77,14 +77,20 @@ def upload_file_to_project(project_id):
              current_app.logger.error(f'读取上传文件时出错 (Path: {file_path}): {str(read_err)}')
              return jsonify({'error': '读取文件内容时出错'}), 500
 
+        # Parse the structured content
+        try:
+            parsed_segments = parse_file_content(file_content)
+        except ET.ParseError:
+            os.remove(file_path) # Clean up invalid file
+            return jsonify({'error': '文件格式无效，请使用 <seg><source>...</source><target>...</target></seg> 结构'}), 400
+        except Exception as parse_err: # Catch other potential errors
+            os.remove(file_path)
+            current_app.logger.error(f'解析文件内容时出错 (Path: {file_path}): {str(parse_err)}')
+            return jsonify({'error': '解析文件内容时出错'}), 500
 
-        original_segments = parse_file_content(file_content)
-        if not original_segments:
+        if not parsed_segments:
              os.remove(file_path) # Clean up empty file
-             return jsonify({'error': '文件内容为空或无法解析为段落'}), 400
-
-        # 解析后的原始段落列表
-        original_segments_list = original_segments
+             return jsonify({'error': '文件内容为空或未包含有效的 <seg> 标签'}), 400
 
         # 创建 File 记录 (不包含 segments)
         new_file = File(
@@ -99,14 +105,14 @@ def upload_file_to_project(project_id):
         # 先提交 File 记录以获取 ID (如果需要) 或在添加 Segments 后一起提交
         # db.session.flush() # 可选：获取 new_file.id 但不结束事务
 
-        # 创建 Segment 记录
+        # 创建 Segment 记录 using (source, target) tuples
         segments_to_add = []
-        for index, text in enumerate(original_segments_list):
+        for index, (source_text, target_text) in enumerate(parsed_segments):
             segment = Segment(
-                file_id=new_file.id, # 关联 File ID
+                file_id=new_file.id,
                 segment_index=index,
-                original_text=text,
-                translated_text='' # 初始翻译为空
+                original_text=source_text,
+                translated_text=target_text # Use target from file if present
             )
             segments_to_add.append(segment)
 
@@ -278,10 +284,18 @@ def download_project_file(project_id, file_id):
         # Generate translated file content (use original segment if translation is empty?)
         # 从 Segment 表获取翻译内容
         ordered_segments = file.segments.order_by(Segment.segment_index).all()
-        translated_list = [seg.translated_text for seg in ordered_segments]
+        translated_list = [(seg.original_text, seg.translated_text) for seg in ordered_segments]
 
-        # 使用 '\n\n' 作为分隔符
-        translated_content = '\n\n'.join(translated_list)
+        # Generate content in the new structured format
+        output_lines = []
+        for original, translated in translated_list:
+            # Basic escaping for XML characters within text content
+            escaped_original = original.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            escaped_translated = translated.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            output_lines.append(f"<seg>\n  <source>{escaped_original}</source>\n  <target>{escaped_translated}</target>\n</seg>")
+
+        # Join segments with a newline for readability
+        translated_content = "\n".join(output_lines)
 
         # Create temporary file for download
         base_name, ext = os.path.splitext(file.file_name)
