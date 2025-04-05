@@ -357,7 +357,7 @@ export default {
         }
         await this.$store.dispatch('saveTranslation', {
           projectId: this.projectId,
-          projectId: this.projectId,
+          // Removed duplicate projectId key
           fileId: this.currentFile.id // Use currentFile.id for consistency
         });
         this.$emit('show-success', '翻译进度已自动保存');
