@@ -375,9 +375,10 @@ export default {
          return;
       }
       try {
+        // Use currentFile.id for consistency, ensuring we reference the loaded file
         await this.$store.dispatch('downloadTranslatedFile', {
           projectId: this.projectId,
-          fileId: this.fileId
+          fileId: this.currentFile.id 
         });
         this.$emit('show-success', '文件下载成功');
       } catch (error) {

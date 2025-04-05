@@ -152,6 +152,10 @@ export default new Vuex.Store({
         document.body.removeChild(link);
         
         return true;
+      } catch (error) {
+        console.error("Download file error:", error.response || error); // Log detailed error
+        // Re-throw the error so the component's catch block can handle UI feedback
+        throw error; 
       } finally {
         commit('SET_LOADING', false);
       }
