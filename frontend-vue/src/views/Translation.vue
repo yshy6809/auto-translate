@@ -130,12 +130,14 @@
                 <b-button 
                   variant="primary" 
                   class="action-btn save-btn mr-2"
-                  @click="saveTranslation"
+                  @click="saveTranslation" 
+                  :disabled="isSaving"
                 >
-                  <b-icon icon="save" class="mr-2"></b-icon>
-                  保存翻译进度
+                  <b-spinner small v-if="isSaving" class="mr-2"></b-spinner>
+                  <b-icon icon="save" v-else class="mr-2"></b-icon>
+                  {{ isSaving ? '正在保存...' : '保存翻译进度' }}
                 </b-button>
-                <b-button 
+                <b-button
                   variant="success" 
                   class="action-btn download-btn" 
                   :disabled="!isTranslationComplete" 
@@ -212,12 +214,20 @@
         </transition-group>
         
         <!-- Save button at the bottom -->
-        <div class="d-flex justify-content-center py-4" v-if="filteredItems.length > 0">
-          <b-button variant="primary" size="lg" class="save-btn-bottom" @click="saveTranslation">
-            <b-icon icon="save" class="mr-2"></b-icon>
-            保存翻译进度
+        <!-- Optional: Keep bottom save button or remove if auto-save is sufficient -->
+        <!-- <div class="d-flex justify-content-center py-4" v-if="filteredItems.length > 0">
+          <b-button 
+            variant="primary" 
+            size="lg" 
+            class="save-btn-bottom" 
+            @click="saveTranslation" 
+            :disabled="isSaving"
+          >
+            <b-spinner small v-if="isSaving" class="mr-2"></b-spinner>
+            <b-icon icon="save" v-else class="mr-2"></b-icon>
+            {{ isSaving ? '正在保存...' : '保存翻译进度' }}
           </b-button>
-        </div>
+        </div> -->
       </div>
       
       <!-- Error state -->
@@ -237,6 +247,7 @@
 
 <script>
 import { mapState, mapGetters } from 'vuex'
+import debounce from 'lodash.debounce';
 
 export default {
   name: 'Translation',
@@ -259,8 +270,16 @@ export default {
         { value: 'completed', text: '已完成' },
         { value: 'pending', text: '待翻译' }
       ],
-      filteredItems: []
+      filteredItems: [],
+      isSaving: false, // Add state to track saving status
+      debouncedSave: null // Placeholder for the debounced function
     }
+  },
+  created() {
+    // Initialize the debounced save function
+    // Saves after 2 seconds of inactivity
+    this.debouncedSave = debounce(this.saveTranslation, 2000); 
+    this.fetchProjectAndFile();
   },
   computed: {
     ...mapState({
@@ -273,16 +292,12 @@ export default {
       'getCompletionRate',
       'isTranslationComplete'
     ]),
-    completionRate() {
-      return this.getCompletionRate;
-    },
     completedSegmentsCount() {
-      return this.translatedSegments.filter(s => s.trim() !== '').length;
+      // Ensure translatedSegments is available before filtering
+      return this.translatedSegments ? this.translatedSegments.filter(s => s && s.trim() !== '').length : 0;
     }
   },
-  created() {
-    this.fetchProjectAndFile();
-  },
+  // removed created() hook from here, added above with debounce init
   methods: {
     async fetchProjectAndFile() {
       try {
@@ -322,23 +337,43 @@ export default {
       });
     },
     updateTranslation(index, text) {
-      this.$store.dispatch('updateTranslatedSegment', { index, text });
+      // Update the local state immediately for responsiveness
+      this.$store.commit('UPDATE_TRANSLATED_SEGMENT', { index, text }); 
+      // Trigger the debounced save function
+      this.debouncedSave(); 
     },
     isSegmentCompleted(index) {
-      return this.translatedSegments[index]?.trim() !== '';
+      // Add checks for undefined/null segment
+      return this.translatedSegments && this.translatedSegments[index]?.trim() !== '';
     },
     async saveTranslation() {
+      if (this.isSaving) return; // Prevent concurrent saves
+      this.isSaving = true;
+      this.$emit('show-success', '正在保存...'); // Indicate saving started
       try {
+        // Ensure currentFile exists before accessing its properties
+        if (!this.currentFile) {
+          throw new Error("当前文件未加载");
+        }
         await this.$store.dispatch('saveTranslation', {
           projectId: this.projectId,
-          fileId: this.fileId
+          projectId: this.projectId,
+          fileId: this.currentFile.id // Use currentFile.id for consistency
         });
-        this.$emit('show-success', '翻译进度已保存');
+        this.$emit('show-success', '翻译进度已自动保存');
       } catch (error) {
-        this.$emit('show-error', error.response?.data?.error || '保存翻译进度失败');
+        console.error("Save error:", error); // Log the actual error
+        this.$emit('show-error', error.response?.data?.error || error.message || '保存翻译进度失败');
+      } finally {
+        this.isSaving = false; 
       }
     },
     async downloadTranslatedFile() {
+      // Ensure currentFile exists before downloading
+      if (!this.currentFile) {
+         this.$emit('show-error', '无法下载，文件未加载');
+         return;
+      }
       try {
         await this.$store.dispatch('downloadTranslatedFile', {
           projectId: this.projectId,
