@@ -1,7 +1,7 @@
-Flask==2.3.3
-Flask-Cors==4.0.0
-uuid==1.30
-python-dotenv==1.0.0
-Werkzeug==2.3.7
-SQLAlchemy==2.0.23
-Flask-SQLAlchemy==3.1.1
+Flask>=3.0.0,<4.0.0 # Update to Flask 3.x
+Flask-Cors>=4.0.0,<5.0.0 # Keep current major version
+# uuid is a built-in module, remove from requirements
+python-dotenv>=1.0.0,<2.0.0 # Update to latest 1.x
+Werkzeug>=3.0.0,<4.0.0 # Update to Werkzeug 3.x (compatible with Flask 3.x)
+SQLAlchemy>=2.0.28,<3.0.0 # Update to latest 2.0.x patch
+Flask-SQLAlchemy>=3.1.1,<4.0.0 # Keep current major version
