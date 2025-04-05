@@ -1,11 +1,14 @@
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import os
 from flask import Flask, jsonify
 from flask_cors import CORS
-from .config import Config
-from .models import db
-from .routes.projects import projects_bp
-from .routes.files import files_bp
-from .routes.legacy import legacy_bp
+from config import Config
+from models import db
+from routes.projects import projects_bp
+from routes.files import files_bp
+from routes.legacy import legacy_bp
 import logging
 
 def create_app(config_class=Config):
