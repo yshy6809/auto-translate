@@ -3,9 +3,9 @@ import uuid
 from datetime import datetime
 from flask import Blueprint, request, jsonify, send_file, current_app
 from werkzeug.utils import secure_filename
-from ..models import db, Project, File
-from ..utils import parse_file_content
-from ..config import PROJECTS_DIR, DATA_DIR
+from models import db, Project, File
+from utils import parse_file_content
+from config import PROJECTS_DIR, DATA_DIR
 
 # Create a Blueprint for project-specific file routes
 # Note the dynamic part <project_id> in the url_prefix
