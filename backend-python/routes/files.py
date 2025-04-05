@@ -1,5 +1,6 @@
 import os
 import uuid
+import xml.etree.ElementTree as ET # Import ElementTree
 from datetime import datetime
 from flask import Blueprint, request, jsonify, send_file, current_app
 from werkzeug.utils import secure_filename
