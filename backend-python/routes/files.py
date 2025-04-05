@@ -311,7 +311,7 @@ def download_project_file(project_id, file_id):
             temp_path,
             as_attachment=True,
             download_name=download_filename, # Use the user-friendly name
-            mimetype='text/plain'
+            mimetype='application/xml' # Use XML mime type for structured content
         )
     except Exception as e:
         current_app.logger.error(f'下载项目文件翻译出错 (Project: {project_id}, File: {file_id}): {str(e)}')

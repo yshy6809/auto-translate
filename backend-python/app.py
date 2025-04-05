@@ -17,7 +17,8 @@ def create_app(config_class=Config):
     app.config.from_object(config_class)
 
     # Initialize extensions
-    CORS(app) # Enable CORS for all routes
+    # Expose 'Content-Disposition' for file downloads
+    CORS(app, expose_headers=['Content-Disposition']) 
     db.init_app(app)
 
     # Configure logging
