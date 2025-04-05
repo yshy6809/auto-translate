@@ -8,7 +8,7 @@ from config import Config
 from models import db
 from routes.projects import projects_bp
 from routes.files import files_bp
-from routes.legacy import legacy_bp
+# Removed: from routes.legacy import legacy_bp
 import logging
 
 def create_app(config_class=Config):
@@ -47,7 +47,7 @@ def create_app(config_class=Config):
     # Register blueprints
     app.register_blueprint(projects_bp)
     app.register_blueprint(files_bp)
-    app.register_blueprint(legacy_bp)
+    # Removed: app.register_blueprint(legacy_bp)
 
     # Simple root route for health check or basic info
     @app.route('/')
