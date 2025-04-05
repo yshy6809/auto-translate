@@ -149,8 +149,9 @@ export default new Vuex.Store({
         link.setAttribute('download', filename);
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
-        
+        document.body.removeChild(link); // Clean up the link element
+        window.URL.revokeObjectURL(url); // Release the object URL
+         
         return true;
       } catch (error) {
         console.error("Download file error:", error.response || error); // Log detailed error
