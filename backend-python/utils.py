@@ -2,8 +2,24 @@ import re
 
 def parse_file_content(content):
     """将文本内容分割为段落"""
-    # Split by one or more newline characters possibly surrounded by whitespace
-    # Filter out segments that are empty or contain only whitespace
+    # 1. Split the content using a regular expression:
+    #    re.split(r'\n\s*\n+', content)
+    #    - r'\n\s*\n+' matches one newline (\n), followed by
+    #      zero or more whitespace characters (\s*), followed by
+    #      one or more newlines (\n+).
+    #    - This effectively splits the text wherever there are one or more blank lines
+    #      (or lines containing only whitespace) between paragraphs.
+    #
+    # 2. Iterate through the resulting list of potential segments:
+    #    [... for segment in ... ]
+    #
+    # 3. For each segment, remove leading/trailing whitespace:
+    #    segment.strip()
+    #
+    # 4. Filter out any segments that are empty after stripping:
+    #    ... if segment.strip()
+    #
+    # 5. Return the final list of non-empty, stripped segments.
     return [segment.strip() for segment in re.split(r'\n\s*\n+', content) if segment.strip()]
 
 # Example usage and test cases (optional, but good practice)
