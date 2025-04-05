@@ -3,7 +3,8 @@ import uuid
 from datetime import datetime
 from flask import Blueprint, request, jsonify, send_file, current_app
 from werkzeug.utils import secure_filename
-from models import db, Project, File
+# 导入 Segment 模型
+from models import db, Project, File, Segment
 from utils import parse_file_content
 from config import PROJECTS_DIR, DATA_DIR
 
@@ -82,35 +83,52 @@ def upload_file_to_project(project_id):
              os.remove(file_path) # Clean up empty file
              return jsonify({'error': '文件内容为空或无法解析为段落'}), 400
 
+        # 解析后的原始段落列表
+        original_segments_list = original_segments
 
-        # Create new file record
+        # 创建 File 记录 (不包含 segments)
         new_file = File(
             id=file_id,
             file_name=original_filename,
             file_path=file_path, # Store relative or absolute path based on need
             upload_date=datetime.now(),
             project_id=project_id,
-            completion_rate=0
+            completion_rate=0 # 初始完成率为0
         )
+        db.session.add(new_file)
+        # 先提交 File 记录以获取 ID (如果需要) 或在添加 Segments 后一起提交
+        # db.session.flush() # 可选：获取 new_file.id 但不结束事务
 
-        # Set segment content
-        new_file.original_segments_list = original_segments
-        new_file.translated_segments_list = [''] * len(original_segments)
+        # 创建 Segment 记录
+        segments_to_add = []
+        for index, text in enumerate(original_segments_list):
+            segment = Segment(
+                file_id=new_file.id, # 关联 File ID
+                segment_index=index,
+                original_text=text,
+                translated_text='' # 初始翻译为空
+            )
+            segments_to_add.append(segment)
 
-        # Update project modification time
+        if segments_to_add:
+            db.session.add_all(segments_to_add)
+
+        # 更新项目修改时间
         project.last_modified = datetime.now()
 
-        db.session.add(new_file)
-        db.session.commit() # Commit file first
+        # 提交所有更改 (File, Segments, Project time)
+        db.session.commit()
 
-        # Update project completion rate (after file is committed)
+        # 更新项目完成率 (现在 File 和 Segments 都已提交)
+        # File 的完成率在创建时是0，可以在这里更新一次，或者依赖后续更新
+        # new_file.update_completion_rate() # 更新单个文件完成率
         project.update_completion_rate()
         db.session.commit() # Commit project update
 
         return jsonify({
             'id': file_id,
             'message': '文件上传成功',
-            'file': new_file.to_dict()
+            'file': new_file.to_dict() # to_dict 会从 Segment 表获取数据
         }), 201
     except Exception as e:
         db.session.rollback()
@@ -148,10 +166,10 @@ def get_project_file(project_id, file_id):
 def update_project_file_translation(project_id, file_id):
     try:
         data = request.json
-        translated_segments = data.get('translatedSegments')
+        translated_segments_list = data.get('translatedSegments')
 
         # Basic validation
-        if translated_segments is None or not isinstance(translated_segments, list):
+        if translated_segments_list is None or not isinstance(translated_segments_list, list):
             return jsonify({'error': '缺少或无效的翻译内容格式 (需要列表)'}), 400
 
         project = Project.query.get_or_404(project_id, description='项目不存在')
@@ -159,18 +177,29 @@ def update_project_file_translation(project_id, file_id):
              description='文件不存在或不属于该项目'
         )
 
-        # More validation: Check if the number of segments matches
-        if len(translated_segments) != len(file.original_segments_list):
-             return jsonify({'error': f'翻译段落数量 ({len(translated_segments)}) 与原始段落数量 ({len(file.original_segments_list)}) 不匹配'}), 400
+        # 获取数据库中已排序的段落
+        db_segments = file.segments.order_by(Segment.segment_index).all()
 
-        # Update translation content
-        file.translated_segments_list = translated_segments
+        # 验证段落数量是否匹配
+        if len(translated_segments_list) != len(db_segments):
+             return jsonify({'error': f'翻译段落数量 ({len(translated_segments_list)}) 与原始段落数量 ({len(db_segments)}) 不匹配'}), 400
+
+        # 更新每个 Segment 的 translated_text
+        for index, segment_obj in enumerate(db_segments):
+            # 检查传入列表对应索引是否存在，以防万一
+            if index < len(translated_segments_list):
+                 segment_obj.translated_text = translated_segments_list[index]
+            else:
+                 # 如果传入列表更短（理论上不应发生，因为上面检查过），可以选择报错或跳过
+                 current_app.logger.warning(f"传入的翻译列表在索引 {index} 处过短 (File ID: {file_id})")
+                 pass # 或者设置为空? segment_obj.translated_text = ''
+
         project.last_modified = datetime.now()
 
-        # Update file completion rate
+        # Update file completion rate (模型中的方法已更新)
         file.update_completion_rate()
 
-        # Update project completion rate
+        # Update project completion rate (模型中的方法已更新)
         project.update_completion_rate()
 
         db.session.commit()
@@ -247,8 +276,12 @@ def download_project_file(project_id, file_id):
         # Consider allowing partial download if needed. For now, keep original logic.
 
         # Generate translated file content (use original segment if translation is empty?)
-        # Using '\n\n' as separator, consistent with parsing logic assumption
-        translated_content = '\n\n'.join(file.translated_segments_list)
+        # 从 Segment 表获取翻译内容
+        ordered_segments = file.segments.order_by(Segment.segment_index).all()
+        translated_list = [seg.translated_text for seg in ordered_segments]
+
+        # 使用 '\n\n' 作为分隔符
+        translated_content = '\n\n'.join(translated_list)
 
         # Create temporary file for download
         base_name, ext = os.path.splitext(file.file_name)
