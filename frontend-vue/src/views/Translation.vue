@@ -288,10 +288,11 @@ export default {
       originalSegments: state => state.originalSegments,
       translatedSegments: state => state.translatedSegments
     }),
-    ...mapGetters([
-      'getCompletionRate',
-      'isTranslationComplete'
-    ]),
+    // Use object syntax to map getters to desired computed property names
+    ...mapGetters({
+      completionRate: 'getCompletionRate', // Map store getter 'getCompletionRate' to component computed 'completionRate'
+      isTranslationComplete: 'isTranslationComplete' // Keep this one as is, or map explicitly if preferred
+    }),
     completedSegmentsCount() {
       // Ensure translatedSegments is available before filtering
       return this.translatedSegments ? this.translatedSegments.filter(s => s && s.trim() !== '').length : 0;
