@@ -45,3 +45,7 @@ logs/
 # Cache
 .cache/
 .npm/
+.aider*
+
+__pycache__/
+backend-python/data

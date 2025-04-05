@@ -3,8 +3,8 @@ import shutil
 import uuid
 from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
-from ..models import db, Project, File
-from ..config import PROJECTS_DIR
+from models import db, Project, File
+from config import PROJECTS_DIR
 
 # Create a Blueprint for project routes
 projects_bp = Blueprint('projects', __name__, url_prefix='/api/projects')
